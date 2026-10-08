@@ -1,0 +1,15 @@
+target/
+.m2repo/
+.idea/
+*.iml
+
+.classpath
+.project
+.settings/
+
+logs/
+*.log
+
+.env
+application-local.yml
+application-local.yaml
