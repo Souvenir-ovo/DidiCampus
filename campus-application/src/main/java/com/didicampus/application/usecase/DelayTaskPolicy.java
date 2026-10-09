@@ -9,6 +9,7 @@ package com.didicampus.application.usecase;
 public final class DelayTaskPolicy {
 
     public static final String CONFIRM_TIMEOUT_TOPIC = "errand-confirm-timeout";
+    public static final String AUTO_SETTLE_TOPIC = "errand-auto-settle";
 
     private DelayTaskPolicy() {
     }
@@ -20,5 +21,13 @@ public final class DelayTaskPolicy {
     public static String timeoutPayload(long errandId, int round, long version) {
         return "{\"errandId\":%d,\"round\":%d,\"version\":%d"
                 .formatted(errandId, round, version) + "}";
+    }
+
+    public static String autoSettleKey(long errandId) {
+        return "autosettle:" + errandId;
+    }
+
+    public static String autoSettlePayload(long errandId) {
+        return "{\"errandId\":%d}".formatted(errandId);
     }
 }
