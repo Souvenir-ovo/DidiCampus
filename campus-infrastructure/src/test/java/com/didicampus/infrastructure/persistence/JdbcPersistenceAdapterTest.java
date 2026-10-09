@@ -5,11 +5,17 @@ import com.didicampus.domain.errand.model.ErrandStatus;
 import com.didicampus.domain.errand.model.ErrandType;
 import com.didicampus.domain.errand.ports.LocalMessageRepository;
 import com.didicampus.domain.grab.model.GrabRecord;
+import com.didicampus.domain.credit.model.CreditEvent;
+import com.didicampus.domain.credit.model.CreditEventType;
+import com.didicampus.domain.errand.ports.ErrandQueryPort;
+import com.didicampus.domain.notify.ports.NotificationQueryPort;
 import com.didicampus.domain.wallet.model.AccountType;
 import com.didicampus.domain.wallet.model.EscrowOrder;
 import com.didicampus.domain.wallet.model.LedgerEntry;
 import com.didicampus.domain.wallet.model.WalletAccount;
+import com.didicampus.domain.wallet.ports.WalletQueryPort;
 import com.didicampus.shared.Money;
+import com.didicampus.shared.SnowflakeIdGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -162,6 +168,107 @@ class JdbcPersistenceAdapterTest {
         assertEquals(1, saved.retryCount());
     }
 
+    @Test
+    void queryAdaptersReturnReadModelsWithExpectedOrdering() {
+        Instant oldTime = Instant.now().minusSeconds(60);
+        Instant newTime = Instant.now();
+        jdbcTemplate.update("""
+                INSERT INTO errand
+                (id, campus_id, publisher_id, grabber_id, type, title, reward_amount,
+                 slot_total, slot_taken, status, round, version, locked_at, delivered_at, created_at)
+                VALUES
+                (10, 1, 1001, 2001, 'DELIVERY', '旧任务', 800, 1, 1, 'ACCEPTED', 0, 2, ?, NULL, ?),
+                (11, 1, 1001, NULL, 'BUY', '新任务', 1200, 1, 0, 'PUBLISHED', 0, 1, NULL, NULL, ?),
+                (12, 2, 1002, NULL, 'QUEUE', '别的校区', 500, 1, 0, 'PUBLISHED', 0, 1, NULL, NULL, ?)
+                """, JdbcTime.timestamp(oldTime), JdbcTime.timestamp(oldTime),
+                JdbcTime.timestamp(newTime), JdbcTime.timestamp(newTime));
+        jdbcTemplate.update("""
+                INSERT INTO grab_record
+                (id, campus_id, errand_id, runner_id, seq, round, result, created_at)
+                VALUES (501, 1, 10, 2001, 1, 0, 'GRABBED', ?)
+                """, JdbcTime.timestamp(oldTime));
+        jdbcTemplate.update("""
+                INSERT INTO errand_status_log
+                (campus_id, errand_id, from_status, to_status, round, operator_id, created_at)
+                VALUES (1, 10, 'PUBLISHED', 'LOCKED', 0, 2001, ?)
+                """, JdbcTime.timestamp(oldTime));
+        jdbcTemplate.update("""
+                INSERT INTO wallet_account (id, owner_id, owner_type, available, frozen, version)
+                VALUES (1001, 1001, 'USER', 9000, 0, 0)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO wallet_ledger
+                (id, biz_no, account_id, user_id, direction, amount, balance_after, ref_type, ref_id, created_at)
+                VALUES (701, 'escrow:10', 1001, 1001, 'DEBIT', 800, 9200, 'ESCROW', 10, ?)
+                """, JdbcTime.timestamp(oldTime));
+
+        JdbcErrandQueryAdapter errandQuery = new JdbcErrandQueryAdapter(jdbcTemplate);
+        JdbcWalletQueryAdapter walletQuery = new JdbcWalletQueryAdapter(jdbcTemplate);
+
+        assertEquals(11L, errandQuery.list(1L, "PUBLISHED", 0, 10).getFirst().id());
+        assertEquals(11L, errandQuery.listByCursor(1L, "PUBLISHED", null, null, 10).getFirst().errand().id());
+        assertEquals(2, errandQuery.listByPublisher(1001L, 0, 10).size());
+        assertEquals(10L, errandQuery.listByRunner(2001L, 0, 10).getFirst().id());
+        assertEquals(1, errandQuery.countOngoingByRunner(2001L));
+
+        ErrandQueryPort.StatusChange change = errandQuery.statusLog(1L, 10L).getFirst();
+        assertEquals("PUBLISHED", change.from());
+        assertEquals("LOCKED", change.to());
+
+        WalletQueryPort.BalanceView balance = walletQuery.findBalance(1001L).orElseThrow();
+        assertEquals(9000L, balance.availableCents());
+        assertEquals("escrow:10", walletQuery.ledger(1001L, 0, 10).getFirst().bizNo());
+    }
+
+    @Test
+    void notificationCreditAuditReconAndSyncAdaptersPersistSupportData() {
+        JdbcNotificationRepository notificationRepository = new JdbcNotificationRepository(jdbcTemplate);
+        JdbcNotificationQueryAdapter notificationQuery = new JdbcNotificationQueryAdapter(jdbcTemplate);
+        JdbcCreditRepository creditRepository = new JdbcCreditRepository(jdbcTemplate);
+        JdbcSyncDiffRepository syncDiffRepository = new JdbcSyncDiffRepository(jdbcTemplate);
+        JdbcReconRepository reconRepository = new JdbcReconRepository(jdbcTemplate);
+        JdbcFundAuditAdapter auditAdapter = new JdbcFundAuditAdapter(jdbcTemplate, new SnowflakeIdGenerator(1));
+
+        assertTrue(notificationRepository.insertIfAbsent(801L, "settle:10:2001", 2001L, 10L,
+                "SETTLED", "任务已结算"));
+        assertFalse(notificationRepository.insertIfAbsent(802L, "settle:10:2001", 2001L, 10L,
+                "SETTLED", "重复消息"));
+        assertEquals(1, notificationQuery.unreadCount(2001L));
+        NotificationQueryPort.NotificationView view = notificationQuery.list(2001L, 0, 10).getFirst();
+        assertEquals(10L, view.errandId());
+        assertEquals(1, notificationRepository.markAllRead(2001L));
+        assertEquals(0, notificationQuery.unreadCount(2001L));
+
+        CreditEvent event = new CreditEvent(901L, "settle:10", 2001L,
+                CreditEventType.SETTLE, CreditEventType.SETTLE.delta(),
+                "ERRAND", 10L, Instant.now());
+        assertTrue(creditRepository.applyEvent(event));
+        assertFalse(creditRepository.applyEvent(event));
+        assertEquals(62, creditRepository.scoreOf(2001L));
+        assertEquals(2, creditRepository.windowDelta(2001L, 30));
+        assertEquals(1, creditRepository.recentEvents(2001L, 30, 10).size());
+        jdbcTemplate.update("UPDATE credit_score SET score = 40 WHERE user_id = 2001");
+        assertEquals(1, creditRepository.calibrateScores(30, 10));
+        assertEquals(62, creditRepository.scoreOf(2001L));
+
+        syncDiffRepository.record(Instant.now(), 10L, "status", "PUBLISHED", "LOCKED", true);
+        assertEquals(1L, syncDiffRepository.countSince(Instant.now().minusSeconds(10)));
+
+        auditAdapter.record("settle:10", "SETTLE", 10L, -1L, "{}", true, "ok");
+        Integer auditCount = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM fund_audit_log", Integer.class);
+        assertEquals(1, auditCount);
+
+        jdbcTemplate.update("""
+                INSERT INTO wallet_account (id, owner_id, owner_type, available, frozen, version)
+                VALUES (1, -1, 'ESCROW', 100, 0, 0)
+                """);
+        assertEquals(1, reconRepository.findSnapshotDiffs().size());
+
+        reconRepository.recordDiff(java.time.LocalDate.now(), "SNAPSHOT", "1", 0L, 100L, "balance mismatch");
+        reconRepository.recordDiff(java.time.LocalDate.now(), "SNAPSHOT", "1", 0L, 100L, "balance mismatch");
+        assertEquals(1, reconRepository.countDiffs(java.time.LocalDate.now()));
+    }
+
     private void createTables() {
         jdbcTemplate.execute("""
                 CREATE TABLE errand (
@@ -178,7 +285,8 @@ class JdbcPersistenceAdapterTest {
                   round INT NOT NULL,
                   version BIGINT NOT NULL,
                   locked_at TIMESTAMP NULL,
-                  delivered_at TIMESTAMP NULL
+                  delivered_at TIMESTAMP NULL,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """);
         jdbcTemplate.execute("""
@@ -229,6 +337,7 @@ class JdbcPersistenceAdapterTest {
                   balance_after BIGINT NOT NULL,
                   ref_type VARCHAR(24) NOT NULL,
                   ref_id BIGINT NOT NULL,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                   UNIQUE (biz_no, account_id, direction)
                 )
                 """);
@@ -253,6 +362,76 @@ class JdbcPersistenceAdapterTest {
                   status VARCHAR(16) NOT NULL,
                   retry_count INT NOT NULL,
                   next_retry_at TIMESTAMP NOT NULL
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE notification (
+                  id BIGINT PRIMARY KEY,
+                  msg_key VARCHAR(96) NOT NULL,
+                  user_id BIGINT NOT NULL,
+                  errand_id BIGINT NOT NULL,
+                  type VARCHAR(24) NOT NULL,
+                  content VARCHAR(255) NOT NULL,
+                  read_flag TINYINT NOT NULL DEFAULT 0,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE (msg_key, user_id)
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE credit_score (
+                  user_id BIGINT PRIMARY KEY,
+                  score INT NOT NULL,
+                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  version BIGINT NOT NULL
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE credit_event (
+                  id BIGINT PRIMARY KEY,
+                  biz_no VARCHAR(96) NOT NULL UNIQUE,
+                  user_id BIGINT NOT NULL,
+                  type VARCHAR(32) NOT NULL,
+                  delta INT NOT NULL,
+                  ref_type VARCHAR(16) NOT NULL,
+                  ref_id BIGINT NOT NULL,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE sync_diff (
+                  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                  check_time TIMESTAMP NOT NULL,
+                  errand_id BIGINT NOT NULL,
+                  field VARCHAR(32) NOT NULL,
+                  db_value VARCHAR(64),
+                  cache_value VARCHAR(64),
+                  fixed TINYINT NOT NULL
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE fund_audit_log (
+                  id BIGINT PRIMARY KEY,
+                  biz_no VARCHAR(64) NOT NULL,
+                  action VARCHAR(24) NOT NULL,
+                  errand_id BIGINT NOT NULL,
+                  operator_id BIGINT NOT NULL,
+                  detail VARCHAR(1000),
+                  result VARCHAR(16) NOT NULL,
+                  message VARCHAR(255),
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE recon_diff (
+                  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                  check_date DATE NOT NULL,
+                  check_type VARCHAR(24) NOT NULL,
+                  subject VARCHAR(64),
+                  expected BIGINT,
+                  actual BIGINT,
+                  detail VARCHAR(500),
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE (check_date, check_type, subject)
                 )
                 """);
     }
