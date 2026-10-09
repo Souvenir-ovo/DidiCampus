@@ -1,0 +1,50 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: DidiCampus
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/didi_campus?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+  sql:
+    init:
+      mode: never
+
+didicampus:
+  node-id: 1
+  cache:
+    mode: memory
+    logical-ttl-ms: 300000
+    empty-ttl-ms: 60000
+    double-delete-enabled: true
+    double-delete-ms: 500
+  grab:
+    slot-mode: memory
+    queue-mode: memory
+    limit-mode: local
+    limit-enabled: true
+    limit-per-second: 500
+  credit:
+    min-score: 40
+    max-ongoing: 5
+    ranking-mode: memory
+  timeout:
+    confirm-seconds: 300
+    max-transfer-rounds: 5
+  settle:
+    commission-rate: 0.05
+  auth:
+    mode: jwt
+    jwt-secret: didi-campus-local-demo-secret-key-min-32-bytes
+    access-token-minutes: 120
+    refresh-token-minutes: 10080
+    allow-header-identity: false
+  web:
+    cors-origins: http://localhost:5173
+  mq:
+    enabled: false
+  ws:
+    enabled: false
