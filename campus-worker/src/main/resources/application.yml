@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: DidiCampusWorker
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/didi_campus?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+
+didicampus:
+  node-id: 2
+  mq:
+    enabled: false
+  ws:
+    enabled: false
+  cache:
+    mode: memory
+    double-delete-enabled: true
+  grab:
+    slot-mode: memory
+    queue-mode: memory
+    limit-mode: local
+  credit:
+    ranking-mode: memory
+  worker:
+    local-message:
+      interval-ms: 10000
+      batch-size: 100
+      max-retry: 6
+    timeout:
+      interval-ms: 5000
+      grace-seconds: 2
+      batch-size: 200
+    settle:
+      interval-ms: 5000
+      auto-seconds: 86400
+      batch-size: 200
+    recon:
+      cron: "0 0 2 * * ?"
+    credit:
+      cron: "0 0 3 * * ?"
+      batch-size: 1000
+    cache-check:
+      interval-ms: 300000
+  cache:
+    check-sample-size: 100
