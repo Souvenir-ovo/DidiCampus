@@ -12,6 +12,10 @@ spring:
   sql:
     init:
       mode: never
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
 
 didicampus:
   node-id: 1
@@ -21,6 +25,13 @@ didicampus:
     empty-ttl-ms: 60000
     double-delete-enabled: true
     double-delete-ms: 500
+    redisson-pool-size: 16
+    redis:
+      shards: 4
+      ttl-seconds: 600
+      jitter-seconds: 120
+      empty-ttl-seconds: 60
+      bloom-enabled: true
   grab:
     slot-mode: memory
     queue-mode: memory
@@ -39,6 +50,7 @@ didicampus:
   auth:
     mode: jwt
     jwt-secret: didi-campus-local-demo-secret-key-min-32-bytes
+    arbitrator-id: 9001
     access-token-minutes: 120
     refresh-token-minutes: 10080
     allow-header-identity: false

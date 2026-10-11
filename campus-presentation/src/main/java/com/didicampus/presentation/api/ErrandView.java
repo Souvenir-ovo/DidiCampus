@@ -1,5 +1,6 @@
 package com.didicampus.presentation.api;
 
+import com.didicampus.application.usecase.ErrandDetail;
 import com.didicampus.domain.errand.model.Errand;
 
 import java.time.Instant;
@@ -35,5 +36,23 @@ public record ErrandView(long id,
                 errand.version(),
                 errand.lockedAt(),
                 errand.deliveredAt());
+    }
+
+    public static ErrandView from(ErrandDetail detail) {
+        return new ErrandView(
+                detail.id(),
+                detail.campusId(),
+                detail.publisherId(),
+                detail.runnerId(),
+                detail.type(),
+                detail.title(),
+                detail.rewardCents(),
+                detail.slotTotal(),
+                detail.slotTaken(),
+                detail.status(),
+                detail.round(),
+                detail.version(),
+                detail.lockedAt(),
+                detail.deliveredAt());
     }
 }

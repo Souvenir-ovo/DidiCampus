@@ -2,12 +2,16 @@ package com.didicampus.presentation.api;
 
 import com.didicampus.application.usecase.ConfirmErrandService;
 import com.didicampus.application.usecase.DeliverErrandService;
+import com.didicampus.application.usecase.ErrandActionResolver;
+import com.didicampus.application.usecase.GetErrandDetailService;
 import com.didicampus.application.usecase.GrabErrandService;
 import com.didicampus.application.usecase.PickUpErrandService;
 import com.didicampus.application.usecase.PublishErrandService;
 import com.didicampus.application.usecase.SettleErrandService;
 import com.didicampus.domain.errand.model.ErrandType;
 import com.didicampus.domain.errand.ports.ErrandQueryPort;
+import com.didicampus.presentation.auth.CurrentUser;
+import com.didicampus.shared.ErrorCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -34,6 +38,8 @@ public class ErrandController {
     private final DeliverErrandService deliverService;
     private final SettleErrandService settleService;
     private final ErrandQueryPort errandQuery;
+    private final GetErrandDetailService detailService;
+    private final ErrandActionResolver actionResolver;
 
     public ErrandController(PublishErrandService publishService,
                             GrabErrandService grabService,
@@ -41,7 +47,9 @@ public class ErrandController {
                             PickUpErrandService pickUpService,
                             DeliverErrandService deliverService,
                             SettleErrandService settleService,
-                            ErrandQueryPort errandQuery) {
+                            ErrandQueryPort errandQuery,
+                            GetErrandDetailService detailService,
+                            ErrandActionResolver actionResolver) {
         this.publishService = publishService;
         this.grabService = grabService;
         this.confirmService = confirmService;
@@ -49,6 +57,8 @@ public class ErrandController {
         this.deliverService = deliverService;
         this.settleService = settleService;
         this.errandQuery = errandQuery;
+        this.detailService = detailService;
+        this.actionResolver = actionResolver;
     }
 
     @PostMapping
@@ -114,6 +124,19 @@ public class ErrandController {
                 .stream()
                 .map(ErrandView::from)
                 .toList());
+    }
+
+    @GetMapping("/{errandId}")
+    public ApiResponse<ErrandDetailView> detail(@PathVariable long errandId) {
+        long viewerId = CurrentUser.id();
+        return detailService.find(errandId)
+                .map(detail -> ErrandDetailView.from(
+                        detail,
+                        actionResolver.resolve(detail, viewerId)))
+                .map(ApiResponse::ok)
+                .orElseGet(() -> ApiResponse.fail(
+                        ErrorCode.ERRAND_NOT_FOUND.name(),
+                        ErrorCode.ERRAND_NOT_FOUND.message()));
     }
 
     @GetMapping("/cursor")
