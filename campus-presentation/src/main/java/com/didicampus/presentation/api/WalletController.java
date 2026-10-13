@@ -1,6 +1,7 @@
 package com.didicampus.presentation.api;
 
 import com.didicampus.domain.wallet.ports.WalletQueryPort;
+import com.didicampus.application.usecase.QueryWalletService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,15 +14,15 @@ import java.util.List;
 @RequestMapping("/api/wallets")
 public class WalletController {
 
-    private final WalletQueryPort walletQuery;
+    private final QueryWalletService walletQuery;
 
-    public WalletController(WalletQueryPort walletQuery) {
+    public WalletController(QueryWalletService walletQuery) {
         this.walletQuery = walletQuery;
     }
 
     @GetMapping("/{ownerId}/balance")
     public ApiResponse<WalletQueryPort.BalanceView> balance(@PathVariable long ownerId) {
-        return ApiResponse.ok(walletQuery.findBalance(ownerId).orElse(null));
+        return ApiResponse.ok(walletQuery.balance(ownerId));
     }
 
     @GetMapping("/{ownerId}/ledger")

@@ -1,9 +1,9 @@
 package com.didicampus.presentation.api;
 
+import com.didicampus.application.usecase.QueryCreditService;
 import com.didicampus.domain.credit.model.CreditEvent;
 import com.didicampus.domain.credit.model.CreditScore;
 import com.didicampus.domain.credit.ports.CreditRankingPort;
-import com.didicampus.domain.credit.ports.CreditRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,27 +16,22 @@ import java.util.List;
 @RequestMapping("/api/credits")
 public class CreditController {
 
-    private final CreditRepository creditRepository;
-    private final CreditRankingPort rankingPort;
+    private final QueryCreditService creditQuery;
 
-    public CreditController(CreditRepository creditRepository,
-                            CreditRankingPort rankingPort) {
-        this.creditRepository = creditRepository;
-        this.rankingPort = rankingPort;
+    public CreditController(QueryCreditService creditQuery) {
+        this.creditQuery = creditQuery;
     }
 
     @GetMapping("/users/{userId}")
     public ApiResponse<CreditView> score(@PathVariable long userId) {
-        CreditScore score = creditRepository.find(userId)
-                .orElseGet(() -> CreditScore.initial(userId));
-        return ApiResponse.ok(CreditView.from(score));
+        return ApiResponse.ok(CreditView.from(creditQuery.score(userId)));
     }
 
     @GetMapping("/users/{userId}/events")
     public ApiResponse<List<CreditEventView>> recentEvents(@PathVariable long userId,
                                                            @RequestParam(defaultValue = "30") int days,
                                                            @RequestParam(defaultValue = "20") int limit) {
-        return ApiResponse.ok(creditRepository.recentEvents(userId, days, limit)
+        return ApiResponse.ok(creditQuery.recentEvents(userId, days, limit)
                 .stream()
                 .map(CreditEventView::from)
                 .toList());
@@ -45,7 +40,7 @@ public class CreditController {
     @GetMapping("/campuses/{campusId}/ranking")
     public ApiResponse<List<CreditRankingPort.Entry>> ranking(@PathVariable long campusId,
                                                               @RequestParam(defaultValue = "20") int limit) {
-        return ApiResponse.ok(rankingPort.top(campusId, limit));
+        return ApiResponse.ok(creditQuery.ranking(campusId, limit));
     }
 
     public record CreditView(long userId, int score, long version) {

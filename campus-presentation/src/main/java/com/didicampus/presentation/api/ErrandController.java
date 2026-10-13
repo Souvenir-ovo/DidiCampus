@@ -10,6 +10,7 @@ import com.didicampus.application.usecase.GetErrandDetailService;
 import com.didicampus.application.usecase.GrabErrandService;
 import com.didicampus.application.usecase.PickUpErrandService;
 import com.didicampus.application.usecase.PublishErrandService;
+import com.didicampus.application.usecase.QueryErrandListService;
 import com.didicampus.application.usecase.SettleErrandService;
 import com.didicampus.domain.errand.model.ErrandType;
 import com.didicampus.domain.errand.ports.ErrandQueryPort;
@@ -27,7 +28,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,7 +44,7 @@ public class ErrandController {
     private final SettleErrandService settleService;
     private final DisputeErrandService disputeService;
     private final ArbitrateErrandService arbitrateService;
-    private final ErrandQueryPort errandQuery;
+    private final QueryErrandListService queryService;
     private final GetErrandDetailService detailService;
     private final ErrandActionResolver actionResolver;
 
@@ -57,7 +57,7 @@ public class ErrandController {
                             SettleErrandService settleService,
                             DisputeErrandService disputeService,
                             ArbitrateErrandService arbitrateService,
-                            ErrandQueryPort errandQuery,
+                            QueryErrandListService queryService,
                             GetErrandDetailService detailService,
                             ErrandActionResolver actionResolver) {
         this.publishService = publishService;
@@ -69,7 +69,7 @@ public class ErrandController {
         this.settleService = settleService;
         this.disputeService = disputeService;
         this.arbitrateService = arbitrateService;
-        this.errandQuery = errandQuery;
+        this.queryService = queryService;
         this.detailService = detailService;
         this.actionResolver = actionResolver;
     }
@@ -154,11 +154,11 @@ public class ErrandController {
     }
 
     @GetMapping
-    public ApiResponse<List<ErrandView>> list(@RequestParam long campusId,
-                                              @RequestParam String status,
+    public ApiResponse<List<ErrandView>> list(@RequestParam(defaultValue = "1") long campusId,
+                                              @RequestParam(required = false) String status,
                                               @RequestParam(defaultValue = "0") int page,
                                               @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(errandQuery.list(campusId, status, page, size)
+        return ApiResponse.ok(queryService.list(campusId, status, page, size)
                 .stream()
                 .map(ErrandView::from)
                 .toList());
@@ -177,23 +177,37 @@ public class ErrandController {
                         ErrorCode.ERRAND_NOT_FOUND.message()));
     }
 
+    @GetMapping("/mine")
+    public ApiResponse<List<ErrandView>> mine(
+            @RequestParam(defaultValue = "PUBLISHED_BY_ME") String role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        long currentUser = CurrentUser.id();
+        List<com.didicampus.domain.errand.model.Errand> errands =
+                "GRABBED_BY_ME".equalsIgnoreCase(role)
+                        ? queryService.grabbedBy(currentUser, page, size)
+                        : queryService.publishedBy(currentUser, page, size);
+        return ApiResponse.ok(errands.stream().map(ErrandView::from).toList());
+    }
+
     @GetMapping("/cursor")
-    public ApiResponse<List<CursorErrandView>> listByCursor(@RequestParam long campusId,
-                                                            @RequestParam String status,
-                                                            @RequestParam(required = false) Instant beforeCreatedAt,
-                                                            @RequestParam(required = false) Long beforeId,
+    public ApiResponse<CursorPageView> listByCursor(
+                                                            @RequestParam(defaultValue = "1") long campusId,
+                                                            @RequestParam(required = false) String status,
+                                                            @RequestParam(required = false) String cursor,
                                                             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(errandQuery.listByCursor(campusId, status, beforeCreatedAt, beforeId, size)
-                .stream()
-                .map(item -> new CursorErrandView(ErrandView.from(item.errand()), item.createdAt()))
-                .toList());
+        QueryErrandListService.CursorPage<com.didicampus.domain.errand.model.Errand> page =
+                queryService.listByCursor(campusId, status, cursor, size);
+        return ApiResponse.ok(new CursorPageView(
+                page.items().stream().map(ErrandView::from).toList(),
+                page.nextCursor()));
     }
 
     @GetMapping("/publishers/{publisherId}")
     public ApiResponse<List<ErrandView>> byPublisher(@PathVariable long publisherId,
                                                      @RequestParam(defaultValue = "0") int page,
                                                      @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(errandQuery.listByPublisher(publisherId, page, size)
+        return ApiResponse.ok(queryService.publishedBy(publisherId, page, size)
                 .stream()
                 .map(ErrandView::from)
                 .toList());
@@ -203,16 +217,15 @@ public class ErrandController {
     public ApiResponse<List<ErrandView>> byRunner(@PathVariable long runnerId,
                                                   @RequestParam(defaultValue = "0") int page,
                                                   @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(errandQuery.listByRunner(runnerId, page, size)
+        return ApiResponse.ok(queryService.grabbedBy(runnerId, page, size)
                 .stream()
                 .map(ErrandView::from)
                 .toList());
     }
 
     @GetMapping("/{errandId}/status-log")
-    public ApiResponse<List<ErrandQueryPort.StatusChange>> statusLog(@PathVariable long errandId,
-                                                                     @RequestParam long campusId) {
-        return ApiResponse.ok(errandQuery.statusLog(campusId, errandId));
+    public ApiResponse<List<ErrandQueryPort.StatusChange>> statusLog(@PathVariable long errandId) {
+        return ApiResponse.ok(queryService.statusLog(errandId));
     }
 
     public record PublishRequest(@Min(1) long campusId,
@@ -259,6 +272,6 @@ public class ErrandController {
     public record ArbitrateResponse(String result) {
     }
 
-    public record CursorErrandView(ErrandView errand, Instant createdAt) {
+    public record CursorPageView(List<ErrandView> items, String nextCursor) {
     }
 }

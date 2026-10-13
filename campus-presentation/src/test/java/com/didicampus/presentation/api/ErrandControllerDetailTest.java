@@ -11,8 +11,8 @@ import com.didicampus.application.usecase.GetErrandDetailService;
 import com.didicampus.application.usecase.GrabErrandService;
 import com.didicampus.application.usecase.PickUpErrandService;
 import com.didicampus.application.usecase.PublishErrandService;
+import com.didicampus.application.usecase.QueryErrandListService;
 import com.didicampus.application.usecase.SettleErrandService;
-import com.didicampus.domain.errand.ports.ErrandQueryPort;
 import com.didicampus.presentation.auth.CurrentUser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -65,7 +65,7 @@ class ErrandControllerDetailTest {
                 mock(SettleErrandService.class),
                 mock(DisputeErrandService.class),
                 mock(ArbitrateErrandService.class),
-                mock(ErrandQueryPort.class),
+                mock(QueryErrandListService.class),
                 details,
                 new ErrandActionResolver(9001L));
 

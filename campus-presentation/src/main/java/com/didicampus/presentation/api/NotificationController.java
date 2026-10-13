@@ -1,7 +1,8 @@
 package com.didicampus.presentation.api;
 
+import com.didicampus.application.usecase.MarkNotificationsReadService;
+import com.didicampus.application.usecase.QueryNotificationService;
 import com.didicampus.domain.notify.ports.NotificationQueryPort;
-import com.didicampus.domain.notify.ports.NotificationRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,13 +16,13 @@ import java.util.List;
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
-    private final NotificationQueryPort notificationQuery;
-    private final NotificationRepository notificationRepository;
+    private final QueryNotificationService notificationQuery;
+    private final MarkNotificationsReadService markReadService;
 
-    public NotificationController(NotificationQueryPort notificationQuery,
-                                  NotificationRepository notificationRepository) {
+    public NotificationController(QueryNotificationService notificationQuery,
+                                  MarkNotificationsReadService markReadService) {
         this.notificationQuery = notificationQuery;
-        this.notificationRepository = notificationRepository;
+        this.markReadService = markReadService;
     }
 
     @GetMapping("/users/{userId}")
@@ -38,7 +39,7 @@ public class NotificationController {
 
     @PostMapping("/users/{userId}/read-all")
     public ApiResponse<MarkReadResponse> markAllRead(@PathVariable long userId) {
-        return ApiResponse.ok(new MarkReadResponse(notificationRepository.markAllRead(userId)));
+        return ApiResponse.ok(new MarkReadResponse(markReadService.markAllRead(userId)));
     }
 
     public record UnreadCountResponse(int count) {

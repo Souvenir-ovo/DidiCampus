@@ -38,6 +38,7 @@ public enum ErrorCode {
     NOT_ARBITRABLE("任务当前不可仲裁"),
 
     UNAUTHORIZED("未登录或会话已过期"),
+    BAD_REQUEST("请求参数错误"),
     ERRAND_NOT_FOUND("任务不存在"),
     ACCOUNT_NOT_FOUND("账户不存在"),
     ILLEGAL_STATE_TRANSITION("非法状态流转"),
