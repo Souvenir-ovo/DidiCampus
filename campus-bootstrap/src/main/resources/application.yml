@@ -38,6 +38,7 @@ didicampus:
     limit-mode: local
     limit-enabled: true
     limit-per-second: 500
+    limit-resource: didicampus-grab
   credit:
     min-score: 40
     max-ongoing: 5
