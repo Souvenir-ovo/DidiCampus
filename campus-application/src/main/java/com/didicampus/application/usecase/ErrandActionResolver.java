@@ -47,6 +47,13 @@ public class ErrandActionResolver {
                 && status.canTransitTo(ErrandStatus.SETTLED)) {
             actions.add("SETTLE");
         }
+        if (publisher && (status == ErrandStatus.DRAFT || status == ErrandStatus.PUBLISHED)) {
+            actions.add("CANCEL");
+        }
+        if ((publisher || currentRunner)
+                && status.canTransitTo(ErrandStatus.DISPUTED)) {
+            actions.add("DISPUTE");
+        }
 
         String role = arbitrator ? "ARBITRATOR"
                 : publisher ? "PUBLISHER"

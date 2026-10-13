@@ -27,9 +27,9 @@ class ErrandActionResolverTest {
         ErrandActionResolver.Resolved delivered =
                 resolver.resolve(detail("DELIVERED", 1001L, 2001L), 1001L);
 
-        assertEquals(List.of(), published.actions());
+        assertEquals(List.of("CANCEL"), published.actions());
         assertEquals("PUBLISHER", delivered.role());
-        assertEquals(List.of("SETTLE"), delivered.actions());
+        assertEquals(List.of("SETTLE", "DISPUTE"), delivered.actions());
     }
 
     @Test
@@ -42,8 +42,8 @@ class ErrandActionResolverTest {
                 resolver.resolve(detail("PICKED_UP", 1001L, 2001L), 2001L);
 
         assertEquals(List.of("CONFIRM"), locked.actions());
-        assertEquals(List.of("PICKUP"), accepted.actions());
-        assertEquals(List.of("DELIVER"), pickedUp.actions());
+        assertEquals(List.of("PICKUP", "DISPUTE"), accepted.actions());
+        assertEquals(List.of("DELIVER", "DISPUTE"), pickedUp.actions());
     }
 
     @Test

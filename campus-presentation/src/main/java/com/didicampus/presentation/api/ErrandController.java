@@ -1,7 +1,9 @@
 package com.didicampus.presentation.api;
 
 import com.didicampus.application.usecase.ConfirmErrandService;
+import com.didicampus.application.usecase.CancelErrandService;
 import com.didicampus.application.usecase.DeliverErrandService;
+import com.didicampus.application.usecase.DisputeErrandService;
 import com.didicampus.application.usecase.ErrandActionResolver;
 import com.didicampus.application.usecase.GetErrandDetailService;
 import com.didicampus.application.usecase.GrabErrandService;
@@ -32,30 +34,36 @@ import java.util.List;
 public class ErrandController {
 
     private final PublishErrandService publishService;
+    private final CancelErrandService cancelService;
     private final GrabErrandService grabService;
     private final ConfirmErrandService confirmService;
     private final PickUpErrandService pickUpService;
     private final DeliverErrandService deliverService;
     private final SettleErrandService settleService;
+    private final DisputeErrandService disputeService;
     private final ErrandQueryPort errandQuery;
     private final GetErrandDetailService detailService;
     private final ErrandActionResolver actionResolver;
 
     public ErrandController(PublishErrandService publishService,
+                            CancelErrandService cancelService,
                             GrabErrandService grabService,
                             ConfirmErrandService confirmService,
                             PickUpErrandService pickUpService,
                             DeliverErrandService deliverService,
                             SettleErrandService settleService,
+                            DisputeErrandService disputeService,
                             ErrandQueryPort errandQuery,
                             GetErrandDetailService detailService,
                             ErrandActionResolver actionResolver) {
         this.publishService = publishService;
+        this.cancelService = cancelService;
         this.grabService = grabService;
         this.confirmService = confirmService;
         this.pickUpService = pickUpService;
         this.deliverService = deliverService;
         this.settleService = settleService;
+        this.disputeService = disputeService;
         this.errandQuery = errandQuery;
         this.detailService = detailService;
         this.actionResolver = actionResolver;
@@ -113,6 +121,18 @@ public class ErrandController {
                                               @Valid @RequestBody SettleRequest request) {
         SettleErrandService.Result result = settleService.settle(errandId, request.operatorId());
         return ApiResponse.ok(new SettleResponse(result.name()));
+    }
+
+    @PostMapping("/{errandId}/cancel")
+    public ApiResponse<CancelResponse> cancel(@PathVariable long errandId) {
+        CancelErrandService.Result result = cancelService.cancel(errandId, CurrentUser.id());
+        return ApiResponse.ok(new CancelResponse(result.name()));
+    }
+
+    @PostMapping("/{errandId}/dispute")
+    public ApiResponse<Void> dispute(@PathVariable long errandId) {
+        disputeService.raise(errandId, CurrentUser.id());
+        return ApiResponse.ok();
     }
 
     @GetMapping
@@ -210,6 +230,9 @@ public class ErrandController {
     }
 
     public record SettleResponse(String result) {
+    }
+
+    public record CancelResponse(String result) {
     }
 
     public record CursorErrandView(ErrandView errand, Instant createdAt) {

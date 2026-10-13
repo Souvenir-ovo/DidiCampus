@@ -1,7 +1,9 @@
 package com.didicampus.presentation.api;
 
 import com.didicampus.application.usecase.ConfirmErrandService;
+import com.didicampus.application.usecase.CancelErrandService;
 import com.didicampus.application.usecase.DeliverErrandService;
+import com.didicampus.application.usecase.DisputeErrandService;
 import com.didicampus.application.usecase.ErrandActionResolver;
 import com.didicampus.application.usecase.ErrandDetail;
 import com.didicampus.application.usecase.GetErrandDetailService;
@@ -54,11 +56,13 @@ class ErrandControllerDetailTest {
 
         ErrandController controller = new ErrandController(
                 mock(PublishErrandService.class),
+                mock(CancelErrandService.class),
                 mock(GrabErrandService.class),
                 mock(ConfirmErrandService.class),
                 mock(PickUpErrandService.class),
                 mock(DeliverErrandService.class),
                 mock(SettleErrandService.class),
+                mock(DisputeErrandService.class),
                 mock(ErrandQueryPort.class),
                 details,
                 new ErrandActionResolver(9001L));
@@ -72,6 +76,6 @@ class ErrandControllerDetailTest {
         assertEquals("OK", response.code());
         assertTrue(response.data() != null);
         assertEquals("CURRENT_RUNNER", response.data().role());
-        assertEquals(java.util.List.of("PICKUP"), response.data().availableActions());
+        assertEquals(java.util.List.of("PICKUP", "DISPUTE"), response.data().availableActions());
     }
 }
