@@ -4,6 +4,7 @@ import com.didicampus.application.usecase.ConfirmErrandService;
 import com.didicampus.application.usecase.CancelErrandService;
 import com.didicampus.application.usecase.DeliverErrandService;
 import com.didicampus.application.usecase.DisputeErrandService;
+import com.didicampus.application.usecase.ArbitrateErrandService;
 import com.didicampus.application.usecase.ErrandActionResolver;
 import com.didicampus.application.usecase.GetErrandDetailService;
 import com.didicampus.application.usecase.GrabErrandService;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/errands")
@@ -41,6 +43,7 @@ public class ErrandController {
     private final DeliverErrandService deliverService;
     private final SettleErrandService settleService;
     private final DisputeErrandService disputeService;
+    private final ArbitrateErrandService arbitrateService;
     private final ErrandQueryPort errandQuery;
     private final GetErrandDetailService detailService;
     private final ErrandActionResolver actionResolver;
@@ -53,6 +56,7 @@ public class ErrandController {
                             DeliverErrandService deliverService,
                             SettleErrandService settleService,
                             DisputeErrandService disputeService,
+                            ArbitrateErrandService arbitrateService,
                             ErrandQueryPort errandQuery,
                             GetErrandDetailService detailService,
                             ErrandActionResolver actionResolver) {
@@ -64,6 +68,7 @@ public class ErrandController {
         this.deliverService = deliverService;
         this.settleService = settleService;
         this.disputeService = disputeService;
+        this.arbitrateService = arbitrateService;
         this.errandQuery = errandQuery;
         this.detailService = detailService;
         this.actionResolver = actionResolver;
@@ -133,6 +138,19 @@ public class ErrandController {
     public ApiResponse<Void> dispute(@PathVariable long errandId) {
         disputeService.raise(errandId, CurrentUser.id());
         return ApiResponse.ok();
+    }
+
+    @PostMapping("/{errandId}/arbitrate")
+    public ApiResponse<ArbitrateResponse> arbitrate(
+            @PathVariable long errandId,
+            @Valid @RequestBody ArbitrateRequest request) {
+        ArbitrateErrandService.Favor favor = ArbitrateErrandService.Favor.valueOf(
+                request.favor().trim().toUpperCase(Locale.ROOT));
+        ArbitrateErrandService.Result result = arbitrateService.arbitrate(
+                errandId,
+                favor,
+                CurrentUser.id());
+        return ApiResponse.ok(new ArbitrateResponse(result.name()));
     }
 
     @GetMapping
@@ -233,6 +251,12 @@ public class ErrandController {
     }
 
     public record CancelResponse(String result) {
+    }
+
+    public record ArbitrateRequest(@NotBlank String favor) {
+    }
+
+    public record ArbitrateResponse(String result) {
     }
 
     public record CursorErrandView(ErrandView errand, Instant createdAt) {

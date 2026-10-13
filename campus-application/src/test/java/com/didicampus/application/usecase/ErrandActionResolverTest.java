@@ -52,7 +52,7 @@ class ErrandActionResolverTest {
                 resolver.resolve(detail("DISPUTED", 1001L, 2001L), 9001L);
 
         assertEquals("ARBITRATOR", resolved.role());
-        assertEquals(List.of(), resolved.actions());
+        assertEquals(List.of("ARBITRATE"), resolved.actions());
     }
 
     private static ErrandDetail detail(String status, long publisherId, Long runnerId) {

@@ -54,6 +54,9 @@ public class ErrandActionResolver {
                 && status.canTransitTo(ErrandStatus.DISPUTED)) {
             actions.add("DISPUTE");
         }
+        if (arbitrator && status == ErrandStatus.DISPUTED) {
+            actions.add("ARBITRATE");
+        }
 
         String role = arbitrator ? "ARBITRATOR"
                 : publisher ? "PUBLISHER"

@@ -4,6 +4,7 @@ import com.didicampus.application.usecase.ConfirmErrandService;
 import com.didicampus.application.usecase.CancelErrandService;
 import com.didicampus.application.usecase.DeliverErrandService;
 import com.didicampus.application.usecase.DisputeErrandService;
+import com.didicampus.application.usecase.ArbitrateErrandService;
 import com.didicampus.application.usecase.ErrandActionResolver;
 import com.didicampus.application.usecase.ErrandDetail;
 import com.didicampus.application.usecase.GetErrandDetailService;
@@ -63,6 +64,7 @@ class ErrandControllerDetailTest {
                 mock(DeliverErrandService.class),
                 mock(SettleErrandService.class),
                 mock(DisputeErrandService.class),
+                mock(ArbitrateErrandService.class),
                 mock(ErrandQueryPort.class),
                 details,
                 new ErrandActionResolver(9001L));
