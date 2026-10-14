@@ -49,6 +49,7 @@ didicampus:
   settle:
     commission-rate: 0.05
   auth:
+    # jwt 使用本地内存 refresh 状态；redis-jwt 使用 Redis 跨实例共享认证状态。
     mode: jwt
     jwt-secret: didi-campus-local-demo-secret-key-min-32-bytes
     arbitrator-id: 9001
