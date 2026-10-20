@@ -3,8 +3,8 @@ package com.didicampus.presentation.api;
 import com.didicampus.application.usecase.MarkNotificationsReadService;
 import com.didicampus.application.usecase.QueryNotificationService;
 import com.didicampus.domain.notify.ports.NotificationQueryPort;
+import com.didicampus.presentation.auth.CurrentUser;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,21 +25,21 @@ public class NotificationController {
         this.markReadService = markReadService;
     }
 
-    @GetMapping("/users/{userId}")
-    public ApiResponse<List<NotificationQueryPort.NotificationView>> list(@PathVariable long userId,
+    @GetMapping
+    public ApiResponse<List<NotificationQueryPort.NotificationView>> list(
                                                                           @RequestParam(defaultValue = "0") int page,
                                                                           @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(notificationQuery.list(userId, page, size));
+        return ApiResponse.ok(notificationQuery.list(CurrentUser.id(), page, size));
     }
 
-    @GetMapping("/users/{userId}/unread-count")
-    public ApiResponse<UnreadCountResponse> unreadCount(@PathVariable long userId) {
-        return ApiResponse.ok(new UnreadCountResponse(notificationQuery.unreadCount(userId)));
+    @GetMapping("/unread")
+    public ApiResponse<UnreadCountResponse> unreadCount() {
+        return ApiResponse.ok(new UnreadCountResponse(notificationQuery.unreadCount(CurrentUser.id())));
     }
 
-    @PostMapping("/users/{userId}/read-all")
-    public ApiResponse<MarkReadResponse> markAllRead(@PathVariable long userId) {
-        return ApiResponse.ok(new MarkReadResponse(markReadService.markAllRead(userId)));
+    @PostMapping("/read")
+    public ApiResponse<MarkReadResponse> markAllRead() {
+        return ApiResponse.ok(new MarkReadResponse(markReadService.markAllRead(CurrentUser.id())));
     }
 
     public record UnreadCountResponse(int count) {

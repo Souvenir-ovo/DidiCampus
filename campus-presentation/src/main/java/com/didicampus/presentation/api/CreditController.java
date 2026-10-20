@@ -4,8 +4,8 @@ import com.didicampus.application.usecase.QueryCreditService;
 import com.didicampus.domain.credit.model.CreditEvent;
 import com.didicampus.domain.credit.model.CreditScore;
 import com.didicampus.domain.credit.ports.CreditRankingPort;
+import com.didicampus.presentation.auth.CurrentUser;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/credits")
+@RequestMapping("/api/credit")
 public class CreditController {
 
     private final QueryCreditService creditQuery;
@@ -22,24 +22,26 @@ public class CreditController {
         this.creditQuery = creditQuery;
     }
 
-    @GetMapping("/users/{userId}")
-    public ApiResponse<CreditView> score(@PathVariable long userId) {
-        return ApiResponse.ok(CreditView.from(creditQuery.score(userId)));
+    @GetMapping("/self")
+    public ApiResponse<CreditView> score() {
+        return ApiResponse.ok(CreditView.from(creditQuery.score(CurrentUser.id())));
     }
 
-    @GetMapping("/users/{userId}/events")
-    public ApiResponse<List<CreditEventView>> recentEvents(@PathVariable long userId,
+    @GetMapping("/self/events")
+    public ApiResponse<List<CreditEventView>> recentEvents(
                                                            @RequestParam(defaultValue = "30") int days,
                                                            @RequestParam(defaultValue = "20") int limit) {
-        return ApiResponse.ok(creditQuery.recentEvents(userId, days, limit)
+        return ApiResponse.ok(creditQuery.recentEvents(CurrentUser.id(), days, limit)
                 .stream()
                 .map(CreditEventView::from)
                 .toList());
     }
 
-    @GetMapping("/campuses/{campusId}/ranking")
-    public ApiResponse<List<CreditRankingPort.Entry>> ranking(@PathVariable long campusId,
+    @GetMapping("/ranking")
+    public ApiResponse<List<CreditRankingPort.Entry>> ranking(
+                                                              @RequestParam(defaultValue = "1") long campusId,
                                                               @RequestParam(defaultValue = "20") int limit) {
+        CurrentUser.id();
         return ApiResponse.ok(creditQuery.ranking(campusId, limit));
     }
 
