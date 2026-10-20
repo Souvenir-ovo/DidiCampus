@@ -24,12 +24,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/errands")
@@ -78,7 +80,7 @@ public class ErrandController {
     public ApiResponse<PublishResponse> publish(@Valid @RequestBody PublishRequest request) {
         PublishErrandService.Result result = publishService.publish(new PublishErrandService.Command(
                 request.campusId(),
-                request.publisherId(),
+                CurrentUser.id(),
                 request.type(),
                 request.title(),
                 request.rewardCents(),
@@ -88,11 +90,11 @@ public class ErrandController {
 
     @PostMapping("/{errandId}/grab")
     public ApiResponse<GrabResponse> grab(@PathVariable long errandId,
-                                          @Valid @RequestBody GrabRequest request) {
+                                          @RequestHeader(value = "X-Request-Id", required = false) String requestId) {
         GrabErrandService.Result result = grabService.grab(new GrabErrandService.Command(
                 errandId,
-                request.runnerId(),
-                request.requestId()));
+                CurrentUser.id(),
+                requestId == null || requestId.isBlank() ? UUID.randomUUID().toString() : requestId));
         return ApiResponse.ok(new GrabResponse(
                 result.code().name(),
                 result.grabbed(),
@@ -100,31 +102,27 @@ public class ErrandController {
     }
 
     @PostMapping("/{errandId}/confirm")
-    public ApiResponse<ConfirmResponse> confirm(@PathVariable long errandId,
-                                                @Valid @RequestBody ConfirmRequest request) {
+    public ApiResponse<ConfirmResponse> confirm(@PathVariable long errandId) {
         ConfirmErrandService.Outcome outcome = confirmService.confirm(
-                new ConfirmErrandService.Command(errandId, request.runnerId()));
+                new ConfirmErrandService.Command(errandId, CurrentUser.id()));
         return ApiResponse.ok(new ConfirmResponse(outcome.name()));
     }
 
     @PostMapping("/{errandId}/pickup")
-    public ApiResponse<FulfillmentResponse> pickUp(@PathVariable long errandId,
-                                                   @Valid @RequestBody RunnerActionRequest request) {
-        pickUpService.pickUp(new PickUpErrandService.Command(errandId, request.runnerId()));
+    public ApiResponse<FulfillmentResponse> pickUp(@PathVariable long errandId) {
+        pickUpService.pickUp(new PickUpErrandService.Command(errandId, CurrentUser.id()));
         return ApiResponse.ok(new FulfillmentResponse("PICKED_UP"));
     }
 
     @PostMapping("/{errandId}/deliver")
-    public ApiResponse<FulfillmentResponse> deliver(@PathVariable long errandId,
-                                                    @Valid @RequestBody RunnerActionRequest request) {
-        deliverService.deliver(new DeliverErrandService.Command(errandId, request.runnerId()));
+    public ApiResponse<FulfillmentResponse> deliver(@PathVariable long errandId) {
+        deliverService.deliver(new DeliverErrandService.Command(errandId, CurrentUser.id()));
         return ApiResponse.ok(new FulfillmentResponse("DELIVERED"));
     }
 
     @PostMapping("/{errandId}/settle")
-    public ApiResponse<SettleResponse> settle(@PathVariable long errandId,
-                                              @Valid @RequestBody SettleRequest request) {
-        SettleErrandService.Result result = settleService.settle(errandId, request.operatorId());
+    public ApiResponse<SettleResponse> settle(@PathVariable long errandId) {
+        SettleErrandService.Result result = settleService.settle(errandId, CurrentUser.id());
         return ApiResponse.ok(new SettleResponse(result.name()));
     }
 
@@ -229,7 +227,6 @@ public class ErrandController {
     }
 
     public record PublishRequest(@Min(1) long campusId,
-                                 @Min(1) long publisherId,
                                  @NotNull ErrandType type,
                                  @NotBlank String title,
                                  @Min(1) long rewardCents,
@@ -239,25 +236,13 @@ public class ErrandController {
     public record PublishResponse(long errandId, String status, long frozenCents) {
     }
 
-    public record GrabRequest(@Min(1) long runnerId, @NotBlank String requestId) {
-    }
-
     public record GrabResponse(String code, boolean grabbed, Long candidateRank) {
-    }
-
-    public record ConfirmRequest(@Min(1) long runnerId) {
     }
 
     public record ConfirmResponse(String outcome) {
     }
 
-    public record RunnerActionRequest(@Min(1) long runnerId) {
-    }
-
     public record FulfillmentResponse(String outcome) {
-    }
-
-    public record SettleRequest(long operatorId) {
     }
 
     public record SettleResponse(String result) {
