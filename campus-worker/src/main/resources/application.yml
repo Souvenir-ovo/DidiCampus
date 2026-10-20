@@ -3,25 +3,39 @@ spring:
     name: DidiCampusWorker
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/didi_campus?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3307/didi_campus?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: root
+    password: didi123456
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6380
 
 didicampus:
   node-id: 2
   mq:
-    enabled: false
+    enabled: true
+    endpoints: 127.0.0.1:8081
+    topic:
+      confirm-timeout: errand-confirm-timeout
+      auto-settle: errand-auto-settle
+      fund-event: errand-fund-event
+    group:
+      confirm-timeout: didicampus-timeout-consumer
+      auto-settle: didicampus-auto-settle-consumer
+      fund-event: didicampus-fund-event-consumer
+      cache-evict: didicampus-cache-evict-consumer
   ws:
     enabled: false
   cache:
-    mode: memory
+    mode: redis
     double-delete-enabled: true
   grab:
-    slot-mode: memory
-    queue-mode: memory
-    limit-mode: local
+    slot-mode: redis
+    queue-mode: redis
+    limit-mode: sentinel
   credit:
-    ranking-mode: memory
+    ranking-mode: redis
   worker:
     local-message:
       interval-ms: 10000

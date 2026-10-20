@@ -1,0 +1,77 @@
+services:
+  mysql:
+    image: mysql:8.0.40
+    container_name: didicampus-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: didi123456
+      MYSQL_DATABASE: didi_campus
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --transaction-isolation=READ-COMMITTED
+      - --max_connections=500
+      - --innodb_buffer_pool_size=512M
+    volumes:
+      - ./../campus-infrastructure/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./init.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - didicampus-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pdidi123456"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: didicampus-redis
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rmqnamesrv:
+    image: apache/rocketmq:5.3.1
+    container_name: didicampus-rmqnamesrv
+    command: sh mqnamesrv
+    ports:
+      - "9876:9876"
+    environment:
+      JAVA_OPT_EXT: "-server -Xms256m -Xmx256m -Xmn128m"
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -q '[N]amesrvStartup'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  rmqbroker:
+    image: apache/rocketmq:5.3.1
+    container_name: didicampus-rmqbroker
+    command: sh mqbroker -n rmqnamesrv:9876 -c /home/rocketmq/rocketmq-5.3.1/conf/broker.conf --enable-proxy
+    depends_on:
+      rmqnamesrv:
+        condition: service_started
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+      - "8081:8081"
+    volumes:
+      - ./broker.conf:/home/rocketmq/rocketmq-5.3.1/conf/broker.conf:ro
+    environment:
+      JAVA_OPT_EXT: "-server -Xms512m -Xmx512m -Xmn256m -Djava.net.preferIPv4Stack=true"
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -qE '[P]roxyStartup|[B]rokerStartup'"]
+      interval: 10s
+      timeout: 5s
+      retries: 9
+      start_period: 60s
+
+volumes:
+  didicampus-mysql-data:

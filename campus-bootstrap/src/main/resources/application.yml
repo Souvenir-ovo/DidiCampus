@@ -6,21 +6,21 @@ spring:
     name: DidiCampus
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/didi_campus?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3307/didi_campus?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
-    password: root
+    password: didi123456
   sql:
     init:
       mode: never
   data:
     redis:
       host: 127.0.0.1
-      port: 6379
+      port: 6380
 
 didicampus:
   node-id: 1
   cache:
-    mode: memory
+    mode: redis
     logical-ttl-ms: 300000
     empty-ttl-ms: 60000
     double-delete-enabled: true
@@ -33,24 +33,24 @@ didicampus:
       empty-ttl-seconds: 60
       bloom-enabled: true
   grab:
-    slot-mode: memory
-    queue-mode: memory
-    limit-mode: local
+    slot-mode: redis
+    queue-mode: redis
+    limit-mode: sentinel
     limit-enabled: true
     limit-per-second: 500
     limit-resource: didicampus-grab
   credit:
     min-score: 40
     max-ongoing: 5
-    ranking-mode: memory
+    ranking-mode: redis
   timeout:
     confirm-seconds: 300
     max-transfer-rounds: 5
   settle:
     commission-rate: 0.05
   auth:
-    # jwt 使用本地内存 refresh 状态；redis-jwt 使用 Redis 跨实例共享认证状态。
-    mode: jwt
+    # Redis JWT 让 refresh token、吊销黑名单可以跨应用实例共享。
+    mode: redis-jwt
     jwt-secret: didi-campus-local-demo-secret-key-min-32-bytes
     arbitrator-id: 9001
     access-token-minutes: 120
@@ -59,6 +59,16 @@ didicampus:
   web:
     cors-origins: http://localhost:5173
   mq:
-    enabled: false
+    enabled: true
+    endpoints: 127.0.0.1:8081
+    topic:
+      confirm-timeout: errand-confirm-timeout
+      auto-settle: errand-auto-settle
+      fund-event: errand-fund-event
+    group:
+      confirm-timeout: didicampus-timeout-consumer
+      auto-settle: didicampus-auto-settle-consumer
+      fund-event: didicampus-fund-event-consumer
+      cache-evict: didicampus-cache-evict-consumer
   ws:
-    enabled: false
+    enabled: true
